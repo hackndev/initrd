@@ -1,0 +1,77 @@
+#!/bin/sh
+
+if [ ! "$emptybox" ]; then
+  esc=""
+
+  blackf="${esc}[30m";   redf="${esc}[31m";    greenf="${esc}[32m"
+  yellowf="${esc}[33m"   bluef="${esc}[34m";   purplef="${esc}[35m"
+  cyanf="${esc}[36m";    whitef="${esc}[37m"
+  
+  blackb="${esc}[40m";   redb="${esc}[41m";    greenb="${esc}[42m"
+  yellowb="${esc}[43m"   blueb="${esc}[44m";   purpleb="${esc}[45m"
+  cyanb="${esc}[46m";    whiteb="${esc}[47m"
+
+  boldon="${esc}[1m";    boldoff="${esc}[22m"
+  italicson="${esc}[3m"; italicsoff="${esc}[23m"
+  ulon="${esc}[4m";      uloff="${esc}[24m"
+  invon="${esc}[7m";     invoff="${esc}[27m"
+
+  reset="${esc}[0m"
+  
+  blt="${greenf}*${reset}"
+  fullbox="[ ${blt} ]"
+  emptybox="[   ]"
+fi
+
+choice() {
+	echo -e "$emptybox $bluef$1$reset"
+}
+schoice() {
+	echo -e "$fullbox $whitef$boldon$1$reset"
+}
+
+show_screen() {
+	echo
+	echo
+	echo "               ${boldon}${bluef}Welcome to${reset}"
+	echo "               ${boldon}${whitef}Palm Linux${reset}"
+	echo "            ${boldon}${cyanf}www.hackndev.com${reset}"
+	echo
+	echo
+	echo "Please choose, what do you want to boot:"
+	echo "    (use DPad center for next one)"
+	echo
+}
+
+[ "$1" ] && TIME=$1
+[ "$2" ] && WDIR=$2
+[ "$3" ] && DESCRIPTION="$3"
+[ "$NUM" ] || NUM=1
+if [ ! "$TOTNUM" ]; then
+	TOTNUM=`echo "$DESCRIPTION" | grep : | sed 's|[^:]*:[^:]*|:|g' | wc -c`
+fi
+
+[ "$TOTNUM" = 0 ] && exit 0
+
+clear
+
+echo NUM=$NUM > $WDIR/action
+
+show_screen
+
+for i in `seq 1 "$TOTNUM"`; do
+	entry="`echo "$DESCRIPTION" | cut -d : -f $i`"
+	if [ "$i" = "$NUM" ]; then
+		schoice "$entry"
+	else
+		choice "$entry"
+	fi
+done
+
+echo
+echo "You've got $TIME seconds ;-)"
+sh ./timedkill $TIME $WDIR $$ &
+read tmp
+NUM=`expr $NUM % $TOTNUM + 1`
+kill `cat $WDIR/killing`
+. ./dialog "$1" "$2" "$3"
