@@ -1,5 +1,15 @@
 #!/bin/sh
 
+# Default values
+
+SWAP=linux/swapfs
+SQUASHROOT=linux/rootfs.squash
+ROOT=linux/rootfs.ext2
+MODULES=linux/modules.squash
+HOMEDIR=linux/home.ext2
+MACHINE=palm
+DELAY=5
+
 # User functions initialization
 premount() {
 	echo "	Nothing to do..."
@@ -13,6 +23,28 @@ preinit() {
 	echo "	Nothing to do..."
 }
 
+info() {
+	echo -en "${blt} $@"
+}
+
+die() {
+	echo "${boldon}${red}ERROR:${reset} $1"
+	sleep 1000
+}
+
+result() {
+#	$1	- is it fatal?
+	if [ $0 -eq 0 ]; then
+		echo "		               ${ok}"
+	else
+		echo "		               ${fail}"
+		if [ "$1" ]; then
+			echo "FATAL ERROR: $1"
+			sleep 1000
+		fi
+	fi
+
+}
 
 # Colors
 initializeANSI()
@@ -43,14 +75,10 @@ initializeANSI()
 }
 # End Colors
 
-initializeANSI
 PATH="/bin:/usr/bin:$PATH"
+initializeANSI
 
 
-die() {
-	echo "${boldon}${red}ERROR:${reset} $1"
-	sleep 1000
-}
 
 echo
 echo
@@ -63,17 +91,17 @@ echo "                   ${boldon}${cyanf}www.hackndev.com${reset}"
 echo
 echo
 
-echo -en "${blt} Mounting /proc fs..."
+info "Mounting /proc fs..."
 mount -t proc /proc /proc
-echo "		               ${ok}"
+result
 
 #tail -f /proc/kmsg &
 
-echo -en "${blt} Mounting sysfs..."
+info "Mounting sysfs..."
 mount -t sysfs none /sys
-echo "                            ${ok}"
+result
 
-VERSION_MINOR="`cat /proc/sys/kernel/osrelease | sed 's|2\.6\.\([0-9]*\)-.*|\1|'`"
+VERSION_MINOR="`cat /proc/sys/kernel/osrelease | sed 's|2\.6\.\([0-9]*\)[.-].*|\1|'`"
 
 echo -e "${blt} Kernel version 2.6.${VERSION_MINOR} detected..."
 
@@ -95,18 +123,8 @@ done
   
 echo "                                   ${ok}"
   
-# Defaultni hodnoty
-
-SWAP=linux/swapfs
-SQUASHROOT=linux/rootfs.squash
-ROOT=linux/rootfs.ext2
-MODULES=linux/modules.squash
-HOMEDIR=linux/home.ext2
-MACHINE=palm
-DELAY=5
-
-[ -f /mnt/mmc/linux.boot.cfg ] && . /mnt/mmc/linux.boot.cfg
-[ -f /mnt/mmc/linux.boot.cfg ] || ( echo "No config found!" && ls /mnt/mmc/ )
+[ -f /mnt/mmc/linux.boot.cfg ] && source /mnt/mmc/linux.boot.cfg
+[ -f /mnt/mmc/linux.boot.cfg ] || { echo "No config found!" && ls /mnt/mmc/ ; }
 
 mount -t tmpfs -o size=1m none /tmp
 
@@ -152,71 +170,71 @@ fi
 
 umount /tmp
 
-echo -e "${blt} Running premount function..."
-	premount
-echo -e "${LOK}"
+info "Running premount function..."
+premount
+result
 
 if [ -f "/mnt/mmc/$ROOT" ] || [ "`echo $ROOT | grep '^/dev/'`" ]; then
 
 
-	echo -e "${blt} Mounting root fs..."
+#	info "Mounting root fs..."
 	if [ -f "/mnt/mmc/$SQUASHROOT" ]; then
-		mount -o loop "/mnt/mmc/$SQUASHROOT" /mnt/squash || die "Can't mount squash"
-		mount -o loop,nocheck "/mnt/mmc/$ROOT" /mnt/overlay || die "Can't mount overlay"
-		mount -t aufs -o br:/mnt/overlay:/mnt/squash none /newroot || die "Can't mount root"
+		
+		mount -o loop "/mnt/mmc/$SQUASHROOT" /mnt/squash ; result "Can't mount squash"
+		mount -o loop,nocheck "/mnt/mmc/$ROOT" /mnt/overlay ; result "Can't mount overlay"
+		mount -t aufs -o br:/mnt/overlay:/mnt/squash none /newroot ; result "Can't mount root"
   		echo -e "${LOK}"
 	else
 		if [ "`echo $ROOT | grep '^/dev/'`" ]; then
-			mount -o nocheck "$ROOT" /newroot || die "Can't mount root"
+			info "Mounting root partition"
+			mount -o nocheck "$ROOT" /newroot ; result "Can't mount root partition"
 		else
-			mount -o loop,nocheck "/mnt/mmc/$ROOT" /newroot || die "Can't mount root"
+			info "Mounting root loopback"
+			mount -o loop,nocheck "/mnt/mmc/$ROOT" /newroot ; result "Can't mount root loopback"
 		fi
-  		echo -e "${LOK}"
+#  		echo -e "${LOK}"
 		if [ "`echo $SWAP | grep '^/dev/'`" ]; then
-			echo -e "${blt} Mounting swap..."
+			info "Mounting swap..."
 			swapon "$SWAP"
-  			echo -e "${LOK}"
+  			result
 		fi
 	fi
 	
-	echo -en "${blt} Seting hostname... "
+#	echo -en "${blt} Seting hostname... "
+	info "Setting hostname... "
+# what is this for?
 	[ "`cat /newroot/etc/hostname`" = "$HOSTNAME" ] || echo "$MACHINE" > /newroot/etc/hostname
-	echo "	                       ${ok}"
+	result
 	
 	
 	if [ -f "/mnt/mmc/$HOMEDIR" ]; then
-		echo -e "${blt} Mounting home fs..."
-		mount -o loop,nocheck "/mnt/mmc/$HOMEDIR" /newroot/home || die "Can't mount home"
-  		echo -e "${LOK}"
+		info "Mounting home fs..."
+		mount -o loop,nocheck "/mnt/mmc/$HOMEDIR" /newroot/home ; result "Can't mount home"
 	fi
 
-echo -e "${blt} Running prefinish function..."
-	prefinish
-echo -e "${LOK}"
+info "Running prefinish function..."
+prefinish
+result
 
-echo -e "${blt} Getting firmwares (if any)..."
-        dest=/newroot/lib/firmware
-        mkdir -p "$dest"
-        cd /mnt/mmc
-        for i in *.fw; do
-                [ -f "$dest/$i" ] || cp "$i" "$dest"
-        done
-echo -e "${LOK}"
-	
+info "Getting firmwares (if any)..."
+	dest=/newroot/lib/firmware
+	mkdir -p "$dest"
+	cd /mnt/mmc
+	for i in *.fw; do
+		[ -f "$dest/$i" ] || cp "$i" "$dest"
+	done
+result
+
+info "Mounting modules..."
 	if [ -f "/mnt/mmc/$MODULES" ]; then
-		echo -ne "${blt} Mounting modules..."
-		if mount -o loop,nocheck,ro "/mnt/mmc/$MODULES" /newroot/lib/modules; then
-			echo "	                       ${ok}"
-		else
-			echo "	                      ${FAIL}"
-		fi
+		mount -o loop,nocheck,ro "/mnt/mmc/$MODULES" /newroot/lib/modules
+		result
 	else
-		echo -en "${blt} No modules found..."
-		echo "	                      ${FAIL}"
+		echo "	                      None found"
 	fi
 
 
-	echo -en "${blt} Switching to real root"
+	info "Switching to real root"
 	
 	echo -en "."
 	
@@ -239,27 +257,27 @@ echo -e "${LOK}"
 	echo -e "${LOK}"
 
 	if [ -f "/oldroot/mnt/mmc/$SWAP" ]; then
-		echo "${blt} Swap detected"
-		echo "${blt}  Calling swapon..."
+		info "Swap detected\n"
+		info "   Calling swapon..."
 		swapon "/oldroot/mnt/mmc/$SWAP"
-		echo -e "${LOK}"
+		result
 	fi
 
 
-	echo -e "${blt} Loading modules... "
+	info "Loading modules...\n"
 	if [ "$MODPROBE" ]; then
 		for i in $MODPROBE; do
-			echo -e "   ${blt} Loading \"$i\"..."
+			info "   Loading \"$i\"..."
 			FULL_PATH="`find /lib/modules -name "$i.ko" | head -n 1`"
 			[ "$FULL_PATH" ] && insmod "$FULL_PATH"
 		done
 	fi
 	
-	echo -e "${blt} Running preinit function..."
+	info "Running preinit function..."
 	preinit
-	echo -e "${LOK}"
+	result
 
-	echo -en "${blt}  Init runlevel 5..."
+	info "  Init runlevel 5..."
 	exec /usr/sbin/chroot . /sbin/init "5"
 	echo "         ${fail}"
 else
@@ -268,8 +286,8 @@ else
 	echo
 	echo " \"$ROOT\" not found"
 fi
-echo ""
-echo "${blt} Defaulting to shell..."
+echo
+info "Defaulting to shell..."
 
 exec /bin/sh
 
