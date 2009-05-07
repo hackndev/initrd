@@ -107,8 +107,8 @@ echo -e "${blt} Kernel version 2.6.${VERSION_MINOR} detected..."
 
 MOUNTED=FALSE
 
-MMCDEV="/dev/mmc0p1"
-[ 0${VERSION_MINOR} -lt 025 ] && MMCDEV="/dev/oldmmc0p1"
+MMCDEV="/dev/mmcblk0p1"
+[ 0${VERSION_MINOR} -lt 025 ] && MMCDEV="/dev/oldmmcblk0p1"
 
 echo -en "${blt}   Mounting SD/MMC card"
 while [ "$MOUNTED" = FALSE ]; do
